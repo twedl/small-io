@@ -232,7 +232,7 @@ Most of these cells involve a government buyer, for two separate reasons:
 ## Open
 
 - Do the δ's hold up on other years or held-out provinces?
-- Does Detail level, which already fixes some aggregation errors, change the pattern? Rows with tiny flows there will need a rule.
+- Does Detail level, which already fixes some aggregation errors, change the pattern? Answered in [flq-industry-deltas-detail-2021.md](flq-industry-deltas-detail-2021.md): a single δ at Detail, added up to Summary, beats per-industry δ at Summary.
 - The buyer-SLQ division is now the largest fixable error in NS. Should CILQ's buyer term be revisited separately?
 
 ## Code

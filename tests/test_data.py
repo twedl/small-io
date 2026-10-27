@@ -10,6 +10,7 @@ from small_io.io_table import (
     load_provincial_domestic,
     provincial_path,
     read_sheet,
+    to_summary,
 )
 
 pytestmark = pytest.mark.skipif(not DATA_DIR.exists(), reason="data/ not present")
@@ -46,6 +47,15 @@ def test_national_block_is_32_summary_industries():
     assert Z.shape == (32, 32)
     assert list(Z.columns) == list(X.index)
     assert set(SUMMARY_NAICS) == set(Z.columns) - {"BS53C"}
+
+
+@pytest.mark.parametrize("load", [lambda lvl: load_national_domestic(YEAR, lvl), lambda lvl: load_provincial_domestic("NS", YEAR, lvl)])
+def test_detail_adds_up_to_summary(load):
+    Z_d, X_d = load("D")
+    Z_s, X_s = load("S")
+    # Detail is in $K, Summary in $M rounded to the thousand dollars
+    np.testing.assert_allclose(to_summary(X_d).loc[X_s.index] / 1000, X_s, atol=0.01)
+    np.testing.assert_allclose(to_summary(Z_d).loc[Z_s.index, Z_s.columns] / 1000, Z_s, atol=0.01)
 
 
 def test_every_mapped_naics_code_has_jobs_data():

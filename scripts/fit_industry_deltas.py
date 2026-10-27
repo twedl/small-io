@@ -10,7 +10,8 @@ divided by its own total flows), so the big provinces don't set every delta.
 
 Deltas are fitted and scored on the same provinces: the gain over the best
 single delta is an in-sample upper bound, not what a new region would get.
-Summary level only so far; at Detail, rows with tiny flows get noisy deltas.
+At Detail, each estimate is also added up to Summary and scored against the
+real Summary table, the fair comparison with a Summary-level fit.
 """
 
 import argparse
@@ -28,6 +29,7 @@ from small_io.io_table import (
     industry_names,
     load_national_domestic,
     load_provincial_domestic,
+    to_summary,
 )
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
@@ -100,9 +102,16 @@ def main() -> None:
             best_single: regionalize(A_nat, flq_matrix(lq, share, single)),
             "FLQ by industry": regionalize(A_nat, flq_matrix(lq, share, deltas)),
         }
+        row = {"prov": prov, "share": share, "scored_at": args.level}
         for method, A_hat in estimates.items():
-            rows.append({"prov": prov, "share": share, "method": method, **compare(A_hat, A_true, X)})
-        rows.append({"prov": prov, "share": share, "method": "LQ floor", "wape": lq_floor(A_nat, A_true, X)})
+            rows.append({**row, "method": method, **compare(A_hat, A_true, X)})
+        rows.append({**row, "method": "LQ floor", "wape": lq_floor(A_nat, A_true, X)})
+        if args.level == "D":
+            Z_s, X_s = load_provincial_domestic(prov, args.year, "S")
+            A_true_s = coefficients(Z_s, X_s)
+            for method, A_hat in estimates.items():
+                A_hat_s = coefficients(to_summary(A_hat * X), to_summary(X))
+                rows.append({**row, "scored_at": "S", "method": method, **compare(A_hat_s, A_true_s, X_s)})
     results = pd.DataFrame(rows)
 
     RESULTS.mkdir(exist_ok=True)
@@ -120,16 +129,19 @@ def main() -> None:
 
     pd.set_option("display.float_format", "{:.1f}".format)
     order = list(dict.fromkeys(results["method"]))
-    for stat, label in [
-        ("wape", "Cell WAPE on flows, %"),
-        ("mult_mpe", "Output multiplier mean % error (bias)"),
-        ("local_share_err", "Mean error in local-input share of output (x100)"),
-    ]:
-        scale = 100 if stat == "local_share_err" else 1
-        table = results.pivot(index="prov", columns="method", values=stat).loc[PROVINCES, order] * scale
-        table = table.dropna(axis=1, how="all")  # the LQ floor is only a cell WAPE
-        table.loc["mean"] = table.mean()
-        print(f"\n{label}, {args.level} {args.year}, in-sample\n{table}")
+    for scored_at, scored in results.groupby("scored_at", sort=False):
+        level = args.level if scored_at == args.level else f"{args.level} scored at {scored_at}"
+        for stat, label in [
+            ("wape", "Cell WAPE on flows, %"),
+            ("mult_mpe", "Output multiplier mean % error (bias)"),
+            ("local_share_err", "Mean error in local-input share of output (x100)"),
+        ]:
+            scale = 100 if stat == "local_share_err" else 1
+            table = scored.pivot(index="prov", columns="method", values=stat) * scale
+            table = table.loc[PROVINCES, [m for m in order if m in table]]
+            table = table.dropna(axis=1, how="all")  # the LQ floor is only a cell WAPE
+            table.loc["mean"] = table.mean()
+            print(f"\n{label}, {level} {args.year}, in-sample\n{table}")
 
 
 if __name__ == "__main__":
