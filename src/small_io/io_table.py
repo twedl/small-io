@@ -45,6 +45,13 @@ def read_sheet(path: Path, sheet: str) -> pd.DataFrame:
     return out.apply(pd.to_numeric, errors="coerce").fillna(0.0)
 
 
+def industry_names(year: int, level: str = "S") -> pd.Series:
+    """Industry titles by code, from the national table's row labels."""
+    raw = pd.read_excel(national_domestic_path(year, level), sheet_name="Domestic", header=None)
+    rows = raw[raw[1].astype(str).str[:2].isin(INDUSTRY_PREFIXES)]
+    return pd.Series(rows[2].to_numpy(), index=rows[1].to_numpy())
+
+
 def industry_block(sheet: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     """Square industry x industry block and the TOTAL row (gross output)."""
     industries = [c for c in sheet.columns if c in sheet.index and str(c)[:2] in INDUSTRY_PREFIXES]

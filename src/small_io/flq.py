@@ -33,8 +33,15 @@ def flq_lambda(region_share: float, delta: float) -> float:
     return float(np.log2(1 + region_share) ** delta)
 
 
-def flq_matrix(slq: pd.Series, region_share: float, delta: float) -> pd.DataFrame:
-    """FLQ_ij = CILQ_ij * lambda* (diagonal SLQ_i * lambda*)."""
+def flq_matrix(slq: pd.Series, region_share: float, delta: float | pd.Series) -> pd.DataFrame:
+    """FLQ_ij = CILQ_ij * lambda* (diagonal SLQ_i * lambda*).
+
+    A Series of deltas, indexed by industry, gives each selling industry i its
+    own lambda_i = [log2(1 + TRE/TNE)]^delta_i, applied across row i.
+    """
+    if isinstance(delta, pd.Series):
+        lam = np.log2(1 + region_share) ** delta.loc[slq.index]
+        return cilq_matrix(slq).mul(lam, axis=0)
     return cilq_matrix(slq) * flq_lambda(region_share, delta)
 
 

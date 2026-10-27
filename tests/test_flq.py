@@ -26,6 +26,20 @@ def test_regionalize_caps_quotient_at_one():
     np.testing.assert_allclose(r.to_numpy(), expected)
 
 
+def test_uniform_delta_series_matches_scalar():
+    slq = pd.Series([0.5, 2.0, 1.2], index=["a", "b", "c"])
+    deltas = pd.Series(0.25, index=["c", "b", "a"])
+    pd.testing.assert_frame_equal(flq_matrix(slq, 0.05, deltas), flq_matrix(slq, 0.05, 0.25))
+
+
+def test_industry_delta_only_changes_its_own_row():
+    slq = pd.Series([0.5, 2.0, 1.2], index=["a", "b", "c"])
+    base = flq_matrix(slq, 0.05, pd.Series(0.25, index=slq.index))
+    changed = flq_matrix(slq, 0.05, pd.Series([0.25, 0.8, 0.25], index=slq.index))
+    pd.testing.assert_frame_equal(changed.drop(index="b"), base.drop(index="b"))
+    assert (changed.loc["b"] < base.loc["b"]).all()
+
+
 def test_seller_and_buyer_both_absent_gives_zero():
     slq = pd.Series([0.0, 0.0, 1.0], index=["a", "b", "c"])
     m = cilq_matrix(slq)
